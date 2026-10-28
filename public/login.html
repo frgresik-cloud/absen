@@ -149,7 +149,7 @@ const $ = s => document.querySelector(s);
 fetch('/api/config').then(r => r.json()).then(c => {
   if (c.appName) $('#appName').textContent = c.appName;
   if (c.lembaga) $('#lembaga').textContent = `${c.lembaga} · Tapel ${c.tahunPelajaran}`;
-  document.title = 'Masuk · ' + c.appName;
+  document.title = 'Login - ' + (c.appName || 'Absensi Siswa');
 }).catch(()=>{});
 
 async function doLogin(e){
@@ -174,4 +174,4 @@ async function doLogin(e){
 }
 </script>
 </body>
-</html>
+  </html>
