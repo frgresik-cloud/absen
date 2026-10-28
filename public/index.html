@@ -414,13 +414,13 @@ tbody tr:hover{background:#f6f9ff}
 
 <aside class="side" id="side">
   <div class="brand">
-    <div class="brand-logo">AB</div>
-    <div><b id="brandName">Absensi Siswa</b><span id="brandSub">Panel</span></div>
+    <div class="brand-logo">A</div>
+    <div><b id="brandName">Absensi Siswa</b><span id="brandSub"></span></div>
   </div>
   <nav class="nav" id="nav">
     <div class="nav-g">Utama</div>
-    <a data-p="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg> Dashboard</a>
     <a data-p="absensi" class="mg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Absensi Sekolah</a>
+    <a data-p="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg> Dashboard</a>
     <a data-p="absen-pelajaran" class="mg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Absen Pelajaran</a>
     <a data-p="absensi-extra" class="mg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> Absensi Ekstra</a>
     <a data-p="perizinan" class="mg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Perizinan</a>
@@ -1372,7 +1372,7 @@ async function loadRekapHarian() {
       '<td>'+st+'</td>' +
       '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam||'-')+'</td>' +
       '<td>'+(r.jam_pulang?'<span class="bdg bg">Sudah</span>':'<span class="bdg bgr">-</span>')+'</td>' +
-      '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_pulang||'-')+'</td>' +
+      '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_pulang || (r.tanggal < todayLocal() ? 'Alpa' : 'Belum Absen'))+'</td>' +
       '<td>'+pb+'</td></tr>';
   });
   bodyEl.innerHTML = '<div style="overflow-x:auto"><table id="rhTable"><thead><tr><th>No</th><th>Nama</th><th>Kelas</th><th>Status</th><th>Jam Masuk</th><th>Status Pulang</th><th>Jam Pulang</th><th>Aksi</th></tr></thead><tbody>'+html+'</tbody></table></div>';
@@ -1701,8 +1701,8 @@ async function mxLoadList() {
       html += '<tr><td>'+avatar(r.siswa_id, r.nama, r.foto, 30)+'</td>' +
         '<td><b>'+esc(r.nama)+'</b><br><span style="font-size:11px;color:var(--muted)">'+esc(r.kelas)+'</span></td>' +
         '<td><span class="bdg bt">'+esc(r.ekstra_nama)+'</span></td>' +
-        '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_masuk||'-')+'</td>' +
-        '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_pulang||'-')+'</td>' +
+        '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_masuk || (r.tanggal < todayLocal() ? 'Alpa' : 'Belum Absen'))+'</td>' +
+        '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_pulang || (r.tanggal < todayLocal() ? 'Alpa' : 'Belum Absen'))+'</td>' +
         '<td><button class="act-btn danger" onclick="hapusAbsenExtra('+r.id+',this)">Hapus</button></td></tr>';
     });
     el.innerHTML = '<div style="overflow-x:auto"><table><thead><tr><th></th><th>Nama</th><th>Ekstra</th><th>Masuk</th><th>Pulang</th><th></th></tr></thead><tbody>'+html+'</tbody></table></div>';
@@ -1732,6 +1732,7 @@ async function loadRekapExtra() {
   const q = new URLSearchParams();
   q.set('dari', $('#exDari').value); q.set('sampai', $('#exSampai').value);
   if ($('#exFilter').value) q.set('ekstra_id', $('#exFilter').value);
+  if (q.get('dari') > q.get('sampai')) { toast('Tanggal awal tidak boleh setelah tanggal akhir', true); return; }
   const rows = await api.get('/api/rekap/extra?' + q.toString());
   state.exRows = rows;
   const el = $('#exRekapBody'); if (!el) return;
@@ -1741,8 +1742,8 @@ async function loadRekapExtra() {
     html += '<tr><td>'+(i+1)+'</td><td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.tanggal)+'</td>' +
       '<td><b>'+esc(r.nama)+'</b><br><span style="font-size:11px;color:var(--muted)">'+esc(r.kelas)+' · '+esc(r.nis)+'</span></td>' +
       '<td><span class="bdg bt">'+esc(r.ekstra_nama)+'</span></td>' +
-      '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_masuk||'-')+'</td>' +
-      '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_pulang||'-')+'</td></tr>';
+      '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_masuk || (r.tanggal < todayLocal() ? 'Alpa' : 'Belum Absen'))+'</td>' +
+      '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(r.jam_pulang || (r.tanggal < todayLocal() ? 'Alpa' : 'Belum Absen'))+'</td></tr>';
   });
   el.innerHTML = '<div style="overflow-x:auto"><table id="exRekapTable"><thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Ekstra</th><th>Masuk</th><th>Pulang</th></tr></thead><tbody>'+html+'</tbody></table></div>';
 }
@@ -2493,15 +2494,15 @@ async function nvHapus(id, el) { if (!confirm('Hapus nilai ini?')) return; await
 /* ============ PENGATURAN ============ */
 function renderPengaturanHome() {
   const cards = [
-    ['pengaturan-kelas','Set Kelas','mc-blue',''],
-    ['pengaturan-mapel','Set Mapel','mc-purple',''],
-    ['pengaturan-jenis-izin','Set Jenis Izin','mc-slate',''],
-    ['pengaturan-ekstra','Set Ekstrakurikuler','mc-indigo',''],
-    ['pengaturan-informasi','Set Informasi','mc-pink',''],
-    ['pengaturan-libur-besar','Libur Hari Besar','mc-red',''],
-    ['pengaturan-libur-mingguan','Libur Mingguan','mc-indigo',''],
-    ['pengaturan-jam','Setting Jam Absensi','mc-slate','⏰'],
-    ['pengaturan-jam-extra','Set Jam Extra','mc-blue','⏱']
+    ['pengaturan-kelas','Set Kelas','mc-blue','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>'],
+    ['pengaturan-mapel','Set Mapel','mc-purple','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20"/></svg>'],
+    ['pengaturan-jenis-izin','Set Jenis Izin','mc-slate','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM15 3v5h4M9 13h7M9 17h7"/></svg>'],
+    ['pengaturan-ekstra','Set Ekstrakurikuler','mc-indigo','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 6 2 4 4 .6-3 3 .7 4.4L12 16l-3.7 2 .7-4.4-3-3 4-.6z"/></svg>'],
+    ['pengaturan-informasi','Set Informasi','mc-pink','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>'],
+    ['pengaturan-libur-besar','Libur Hari Besar','mc-red','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M9 15l2 2 4-4"/></svg>'],
+    ['pengaturan-libur-mingguan','Libur Mingguan','mc-indigo','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3M8 18h3"/></svg>'],
+    ['pengaturan-jam','Setting Jam Absensi','mc-slate','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>'],
+    ['pengaturan-jam-extra','Set Jam Extra','mc-blue','<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2M19 5l2-2"/></svg>']
   ];
   let html = '<div class="menu-cards">';
   cards.forEach(c => { html += '<button class="menu-card '+c[2]+'" onclick="go(\''+c[0]+'\')"><div class="ic">'+c[3]+'</div><b>'+c[1]+'</b></button>'; });
