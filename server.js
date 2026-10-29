@@ -1597,7 +1597,21 @@ app.get('*', wrap(SPA));
 
 app.use((err, req, res, next) => {
   const status = Number(err.status) >= 400 && Number(err.status) < 500 ? Number(err.status) : 500;
-  if (status >= 500) console.error('Kesalahan internal pada permintaan');
+  if (status >= 500) {
+    // Simpan penyebab teknis di Vercel Runtime Logs, bukan di respons publik.
+    // Hindari mencatat body, cookie, token, connection string, atau parameter query.
+    console.error('[API_ERROR]', JSON.stringify({
+      method: req.method,
+      path: req.path,
+      status,
+      name: String(err.name || 'Error').slice(0, 80),
+      message: String(err.message || 'Unknown error').slice(0, 500),
+      code: err.code ? String(err.code).slice(0, 40) : undefined,
+      constraint: err.constraint ? String(err.constraint).slice(0, 120) : undefined,
+      column: err.column ? String(err.column).slice(0, 120) : undefined,
+      table: err.table ? String(err.table).slice(0, 120) : undefined,
+    }));
+  }
   res.status(status).json({ error: status === 500 ? 'Terjadi kesalahan internal. Silakan coba lagi.' : (err.publicMessage || err.message || 'Permintaan tidak valid') });
 });
 
