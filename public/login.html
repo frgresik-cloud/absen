@@ -92,6 +92,19 @@ body::after{width:520px;height:520px;background:radial-gradient(circle,#2563eb,t
   color:#a5f3fc;font-size:12px;text-align:center;line-height:1.6;
 }
 .hint code{background:rgba(14,165,233,.15);padding:2px 6px;border-radius:5px;font-family:monospace;color:#e0f2fe}
+
+/* Small physical screens: remain readable even when the browser requests Desktop site. */
+@media (max-device-width: 600px) {
+  body { padding: 18px !important; min-height: 100svh; }
+  .login-wrap { width: 100% !important; max-width: 440px !important; }
+  .logo-badge { margin-bottom: 20px !important; gap: 12px !important; }
+  .logo-badge .ic { width: 48px !important; height: 48px !important; border-radius: 14px !important; }
+  .logo-badge h1 { font-size: 18px !important; }
+  .card { padding: 24px 20px !important; border-radius: 20px !important; }
+  .card h2 { font-size: 21px !important; }
+  .field input { min-height: 48px; font-size: 16px !important; }
+  .btn-masuk { min-height: 48px; }
+}
 </style>
 </head>
 <body>
@@ -174,4 +187,4 @@ async function doLogin(e){
 }
 </script>
 </body>
-</html>
+  </html>
