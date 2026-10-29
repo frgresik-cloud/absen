@@ -1532,12 +1532,28 @@ const SPA = async (req, res, next) => {
   if (req.method !== 'GET') return next();
   if (req.path.startsWith('/api/')) return next();
   if (req.path.match(/\.(js|css|png|jpg|jpeg|ico|svg|woff|woff2|ttf|map)$/)) return next();
+
+  const isLogin = req.path === '/login.html' || req.path === '/login';
   const u = await getUser(req);
-  if (req.path === '/login.html' || req.path === '/login') {
-    if (u) return res.redirect('/');
+  if (isLogin) {
+    if (u) return res.redirect('/dashboard');
     return res.sendFile(path.join(PUB, 'login.html'));
   }
-  if (!u) return res.redirect('/login.html');
+  if (!u) {
+    // Direct URL access to protected pages should explain why access was denied.
+    // Do not expose application content until the session has been verified.
+    res.status(403).set('Cache-Control', 'no-store').type('html').send(`<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Akses Ditolak - Absensi Siswa</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#eff6ff;color:#172554;font:16px system-ui,-apple-system,sans-serif}
+main{width:min(100%,420px);padding:32px;border:1px solid #dbeafe;border-radius:20px;background:#fff;box-shadow:0 20px 60px #1e3a8a18;text-align:center}
+.mark{width:52px;height:52px;margin:0 auto 18px;border-radius:16px;background:#2563eb;color:#fff;display:grid;place-items:center;font-size:26px;font-weight:800}
+h1{font-size:22px;margin:0 0 10px}p{line-height:1.6;color:#475569;margin:0 0 24px}
+a{display:block;padding:12px 18px;border-radius:10px;background:#2563eb;color:white;text-decoration:none;font-weight:700}
+</style></head><body><main><div class="mark">A</div><h1>Akses Ditolak</h1><p>Silakan login terlebih dahulu untuk membuka halaman dashboard.</p><a href="/login.html">Ke Halaman Login</a></main></body></html>`);
+  }
+  res.set('Cache-Control', 'private, no-store');
   res.sendFile(path.join(PUB, 'index.html'));
 };
 app.get('/login.html', wrap(SPA));
@@ -1569,9 +1585,11 @@ async function ensureAdmin() {
 }
 
 export const ready = (async () => {
-  // Schema DDL is expensive on serverless cold starts. Set SKIP_SCHEMA_INIT=true
-  // only after the Neon schema has already been initialized successfully.
-  if (!(process.env.VERCEL && process.env.SKIP_SCHEMA_INIT === 'true')) await initSchema();
+  // Schema DDL is expensive on every new serverless instance. For Vercel,
+  // run it only when explicitly enabled for a maintenance/migration deployment.
+  // Existing deployments with a fully initialized Neon schema should leave
+  // RUN_SCHEMA_INIT unset. Set RUN_SCHEMA_INIT=true temporarily only when needed.
+  if (!process.env.VERCEL || process.env.RUN_SCHEMA_INIT === 'true') await initSchema();
   await ensureAdmin();
 })();
 
