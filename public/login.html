@@ -178,7 +178,7 @@ async function doLogin(e){
     });
     const d = await r.json().catch(()=>({}));
     if (!r.ok) throw new Error(d.error || 'Login gagal');
-    window.location.href = '/';
+    window.location.replace('/dashboard');
   } catch (err) {
     $('#errBox').textContent = err.message;
     $('#errBox').style.display = 'block';

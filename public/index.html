@@ -406,7 +406,7 @@ tbody tr:hover{background:#f6f9ff}
 @media(max-width:900px){.side{margin-left:0}.side.collapsed{margin-left:0}.side.open{margin-left:0}.top{padding:10px 14px}.content{padding:20px 14px 90px}.card{padding:16px}.tg{display:grid}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 
-</style>
+.page-heading{display:flex;align-items:center;gap:10px}.page-heading-icon{width:34px;height:34px;flex:0 0 34px;display:inline-grid;place-items:center;border-radius:10px;background:#eaf2ff;color:#2563eb}.page-heading-icon svg{width:20px;height:20px}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}</style>
 </head>
 <body>
 
@@ -852,7 +852,18 @@ async function go(p, push) {
   $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.p === p));
   const side = $('#side'); if (side) side.classList.remove('open');
   const info = PAGES[p] || ['', ''];
-  $('#c').innerHTML = '<h2>' + info[0] + '</h2><p class="sub">' + info[1] + '</p><div id="pv" class="empty">Memuat…</div>';
+  const pageGlyphs = {
+    dashboard:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+    absensi:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 15l2 2 4-4"/>',
+    'absensi-rfid':'<rect x="3" y="7" width="5" height="10" rx="1"/><path d="M12 5a10 10 0 0 1 0 14M15 8a5 5 0 0 1 0 8M18 10a2 2 0 0 1 0 4"/>',
+    'absensi-manual':'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/>',
+    'absensi-rekap-harian':'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 9h18"/>',
+    'absensi-rekap-bulanan':'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 9h18M7 13h3M14 13h3M7 17h3"/>',
+    siswa:'<circle cx="9" cy="8" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M19 8v6M16 11h6"/>',
+    pengaturan:'<circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.6-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.6 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7z"/>'
+  };
+  const glyph = pageGlyphs[p] || '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>';
+  $('#c').innerHTML = '<h2 class="page-heading"><span class="page-heading-icon"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+glyph+'</svg></span><span>' + info[0] + '</span></h2><p class="sub">' + info[1] + '</p><div id="pv" class="empty">Memuat…</div>';
   if (push) { const url = routeToPath(p); if (location.pathname !== url) history.pushState({ page: p }, '', url); }
   try {
     if (p === 'dashboard') return await renderDashboard();
@@ -1621,13 +1632,18 @@ async function prosesScanExtra(e) {
       const r = $('#scanExtraResult'); if (r) r.innerHTML = '<div class="result err"><div class="msg-err">Absen Ditutup</div><div style="color:#7f1d1d;font-size:12.5px;font-weight:600;margin-top:6px">' + esc(err.data.error) + '</div></div>';
       beepErr();
     }
-    else { tampilError(err.message); beepErr(); }
+    else { tampilErrorExtra(err.message); beepErr(); }
   } finally { scanExtraLock = false; inp.disabled = false; inp.focus(); }
+}
+function tampilErrorExtra(message) {
+  const el = $('#scanExtraResult');
+  if (!el) return;
+  el.innerHTML = '<div class="result err"><div class="msg-err">Absen ekstra gagal</div><div style="font-size:12px;margin-top:8px">' + esc(message || 'Terjadi kesalahan. Coba lagi.') + '</div></div>';
 }
 function tampilHasilExtra(r) {
   const s = r.siswa;
   const cls = r.status === 'sudah' ? 'warn' : 'ok';
-  const labels = { baru:'ABSEN DICATAT', sudah:'SUDAH ABSEN' };
+  const labels = { baru:'ABSEN MASUK TERCATAT', pulang:'ABSEN PULANG TERCATAT', sudah:'ABSEN MASUK & PULANG SUDAH LENGKAP' };
   const label = labels[r.status] || 'BERHASIL';
   const photoHtml = s.foto ? '<img src="'+esc(s.foto)+'">' : initials(s.nama);
   const el = $('#scanExtraResult'); if (!el) return;
@@ -2139,7 +2155,7 @@ async function renderDataSiswa() {
     '</div></div>' +
     '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
       '<h3 style="margin:0">Daftar Siswa</h3><span class="bdg bb" id="dsCount">0</span></div>' +
-      '<div style="overflow-x:auto"><table id="dsTable"><thead><tr><th>No</th><th>Foto</th><th>NIS</th><th>Nama</th><th>Kelas</th><th>L/P</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="dsBody"></tbody></table></div></div>';
+      '<div style="overflow-x:auto"><table id="dsTable"><thead><tr><th>No</th><th>Foto</th><th>Nama</th><th>Kelas</th><th>L/P</th><th>RFID</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="dsBody"></tbody></table></div></div>';
   state.dsFilter = { kelas_id:'', q:'', status:'' };
   state.dsRows = d;
   loadDataSiswa();
@@ -2164,10 +2180,10 @@ async function loadDataSiswa() {
     const n = esc(s.nama).replace(/'/g, "\\'");
     html += '<tr class="'+(s.aktif?'':'row-inaktif')+'"><td>'+(i+1)+'</td>' +
       '<td>'+avatar(s.id, s.nama, s.foto, 34)+'</td>' +
-      '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(s.nis)+'</td>' +
       '<td style="font-weight:600">'+esc(s.nama)+'</td>' +
       '<td><span class="bdg bgr">'+esc(s.kelas)+'</span></td>' +
       '<td>'+(s.jenis_kelamin||'-')+'</td>' +
+      '<td style="font-family:ui-monospace;font-size:11.5px">'+esc(s.rfid || '-')+'</td>' +
       '<td>'+(s.aktif?'<span class="badge-aktif">Aktif</span>':'<span class="badge-inaktif">Nonaktif</span>')+'</td>' +
       '<td><button class="act-btn" onclick="openSiswa('+s.id+')">Edit</button> <button class="act-btn danger" onclick="hapusSiswa('+s.id+',this,\''+n+'\')">Hapus</button></td></tr>';
   });

@@ -836,26 +836,62 @@ app.get('/api/absen-extra/hari-ini', auth, wrap(async (req, res) => {
   }).sort((a, b) => String(b.jam_masuk || '').localeCompare(String(a.jam_masuk || ''))));
 }));
 app.post('/api/absen-extra/scan', auth, wrap(async (req, res) => {
-  const { kode, ekstra_id, tanggal } = req.body || {};
-  if (!kode || !ekstra_id) return res.status(400).json({ error: 'Kode & ekstra wajib' });
-  const ql = String(kode).toLowerCase();
-  const { rows: siswaRows } = await pool.query(`SELECT * FROM siswa WHERE (LOWER(rfid) = $1 OR LOWER(nis) = $1 OR LOWER(nisn) = $1) AND aktif != 0 LIMIT 1`, [ql]);
+  const raw = String(req.body?.kode || '').trim();
+  const ekstraId = Number(req.body?.ekstra_id);
+  if (!raw || !Number.isSafeInteger(ekstraId) || ekstraId <= 0) {
+    return res.status(400).json({ error: 'Kode kartu dan ekstrakurikuler wajib diisi' });
+  }
+  const ql = raw.toLowerCase();
+  const { rows: siswaRows } = await pool.query(
+    `SELECT id, nis, nisn, rfid, nama, foto, kelas_id FROM siswa
+     WHERE (LOWER(COALESCE(rfid,'')) = $1 OR LOWER(COALESCE(nis,'')) = $1 OR LOWER(COALESCE(nisn,'')) = $1)
+       AND COALESCE(aktif,1) <> 0 LIMIT 1`, [ql]
+  );
   const s = siswaRows[0];
-  if (!s) return res.status(404).json({ ok: false, error: 'Murid tidak ditemukan', kode });
-  const e = await selOne('ekstra', { id: +ekstra_id });
-  if (!e) return res.status(400).json({ error: 'Ekstra tidak ditemukan' });
-  const tgl = tanggal || todayStr();
+  if (!s) return res.status(404).json({ ok: false, error: 'Murid tidak ditemukan', kode: raw });
+  const e = await selOne('ekstra', { id: ekstraId });
+  if (!e) return res.status(400).json({ error: 'Ekstrakurikuler tidak ditemukan' });
+  const tgl = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(req.body?.tanggal || ''))
+    ? String(req.body.tanggal) : todayStr();
   const st = await getSetting();
   const jamNow = timeNow();
-  if (st.jam_extra_masuk && jamNow < st.jam_extra_masuk) return res.status(403).json({ ok: false, closed: true, error: 'Absen ekstra belum dibuka. Mulai jam ' + st.jam_extra_masuk });
-  if (st.batas_extra_pulang && jamNow > st.batas_extra_pulang) return res.status(403).json({ ok: false, closed: true, error: 'Absen ekstra sudah ditutup. Batas jam ' + st.batas_extra_pulang });
-  const kelas = (await getKelasMap()).get(s.kelas_id) || '-';
-  const ex = await selOne('absensi_extra', { siswa_id: s.id, ekstra_id: e.id, tanggal: tgl });
-  if (!ex) {
-    const rec = await ins('absensi_extra', { siswa_id: s.id, ekstra_id: e.id, tanggal: tgl, jam_masuk: st.jam_extra_masuk || timeNow(), jam_pulang: st.jam_extra_pulang || null, status_masuk: 'tepat', user_id: req.user.id });
-    return res.json({ ok: true, status: 'baru', siswa: { ...s, kelas }, jam: rec.jam_masuk, ekstra: e.nama });
+  if (st.jam_extra_masuk && jamNow < st.jam_extra_masuk) {
+    return res.status(403).json({ ok: false, closed: true, error: 'Absen ekstra belum dibuka. Mulai jam ' + st.jam_extra_masuk });
   }
-  res.json({ ok: true, status: 'sudah', siswa: { ...s, kelas }, jam: ex.jam_masuk, ekstra: e.nama });
+  if (st.batas_extra_pulang && jamNow > st.batas_extra_pulang) {
+    return res.status(403).json({ ok: false, closed: true, error: 'Absen ekstra sudah ditutup. Batas jam ' + st.batas_extra_pulang });
+  }
+  const kelas = (await getKelasMap()).get(s.kelas_id) || '-';
+
+  // Scan pertama menyimpan waktu masuk sebenarnya. Scan kedua mencatat pulang.
+  // ON CONFLICT membuat dua scan yang datang hampir bersamaan tidak membuat data ganda.
+  const inserted = await pool.query(
+    `INSERT INTO absensi_extra
+       (siswa_id, ekstra_id, tanggal, jam_masuk, jam_pulang, status_masuk, user_id)
+     VALUES ($1,$2,$3,$4,NULL,'tepat',$5)
+     ON CONFLICT (siswa_id, ekstra_id, tanggal) DO NOTHING
+     RETURNING *`,
+    [s.id, e.id, tgl, jamNow, req.user.id]
+  );
+  if (inserted.rows[0]) {
+    return res.json({ ok: true, status: 'baru', siswa: { ...s, kelas }, jam: jamNow, ekstra: e.nama, tahap: 'masuk' });
+  }
+
+  const pulang = await pool.query(
+    `UPDATE absensi_extra SET jam_pulang = $1
+     WHERE siswa_id = $2 AND ekstra_id = $3 AND tanggal = $4 AND jam_pulang IS NULL
+     RETURNING *`,
+    [jamNow, s.id, e.id, tgl]
+  );
+  if (pulang.rows[0]) {
+    return res.json({ ok: true, status: 'pulang', siswa: { ...s, kelas }, jam: jamNow, ekstra: e.nama, tahap: 'pulang' });
+  }
+  const existing = await pool.query(
+    `SELECT jam_masuk, jam_pulang FROM absensi_extra
+     WHERE siswa_id = $1 AND ekstra_id = $2 AND tanggal = $3`,
+    [s.id, e.id, tgl]
+  );
+  return res.json({ ok: true, status: 'sudah', siswa: { ...s, kelas }, jam: existing.rows[0]?.jam_pulang || existing.rows[0]?.jam_masuk || jamNow, ekstra: e.nama, tahap: 'lengkap' });
 }));
 app.post('/api/absen-extra/manual', auth, adminGuru, wrap(async (req, res) => {
   const { siswa_id, ekstra_id, tanggal } = req.body || {};
